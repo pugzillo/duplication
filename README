@@ -1,0 +1,10 @@
+Duplication README
+Updated: May 28, 2014
+
+Linh Chau (lchau6@gatech.edu)
+
+Repo includes scripts that are used in find lineage specific gene duplicates in a group of species
+
+Scripts:
+1. genefamily_pipeline_threaded.pl: for all fasta files in the directory, it does blastall and single linkage clustering with MCL
+2. parse_MCL_outfile.pl: parses the MCL clustering output into a nice output file.
