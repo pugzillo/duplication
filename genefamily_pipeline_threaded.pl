@@ -42,8 +42,6 @@ if (defined $options{p}){
 }
 
 ########################################Directories#############################################################
-my $orthodir = $cwd . "/orthofiles"; 
-mkdir $orthodir;
 
 my $blastResults = $cwd . "/BLASTfiles"; 
 mkdir $blastResults;
@@ -64,12 +62,13 @@ for my $file(@cds_files){
 	}
 }
 
-##blastall: blast each genome against each other genome
+###blastall: blast each genome against each other genome
 for my $queryFile(@cds_files){
 	for my $DBfile(@cds_files){
-		my ($Species, $version, $crap) = ($queryFile =~ /(.*)_(.*)_(transcript.fa)/ );
+		my ($Species, $version, $crap) = ($queryFile =~ /(.*)_(.*)_(.*.fa)/ );
 		my $querySpecies = $Species."_".$version; 
-		my ($SubSpecies, $dbversion, $dbcrap) = ($DBfile =~ /(.*)_(.*)_(transcript.fa)/ );
+		print $querySpecies."\n";
+		my ($SubSpecies, $dbversion, $dbcrap) = ($DBfile =~ /(.*)_(.*)_(.*.fa)/ );
 		my $dbSpecies = $SubSpecies."_".$dbversion; 
 		print "Blast $querySpecies against $dbSpecies\n";
 		my $blastoutput = $querySpecies."_blast_".$dbSpecies.".txt"; 
@@ -79,7 +78,7 @@ for my $queryFile(@cds_files){
 }
 }
 
-###########Filtering all of the blastall results (critera: $identity >= 50 &&  $percentOverlap >= 0.6 && $eval <= 9e-3)
+##########Filtering all of the blastall results (critera: $identity >= 50 &&  $percentOverlap >= 0.6 && $eval <= 9e-3)
 
 chdir ($blastResults); 
 
