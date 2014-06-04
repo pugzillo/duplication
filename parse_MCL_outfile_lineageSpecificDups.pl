@@ -16,6 +16,7 @@ my $genePair = $ARGV[1];		##Prefix for gene pair
 my $numProc = $ARGV[2];			##Number of processors
 my $orthodir = $ARGV[3];		##Name of directory for all gene family files
 my $SC_file = $ARGV[4]; 		###File for single copy genes
+my $speciesTree = $ARGV[5];		###File with Species tree for TreeBeST
 
 ###Variables
 my $seq_id;
@@ -31,7 +32,7 @@ mkdir $orthodir;
 #Populate Hashes with Sequence Data for each gene set; make sure that there is no sequence wrapping!!!!
 my @cds_files=glob("*.fa"); #pulls all fasta files into an array 
 
-############################### READ IN SEQUENCE FILES AND MCL CLUSTERING OUTPUT FILES ####################################################
+################# READ IN SEQUENCE FILES AND MCL CLUSTERING OUTPUT FILES ###################
 for my $fasta(@cds_files){			####Reads through each fasta file and creates hash with gene id and the sequence
 	open (IN, $fasta) || die "$fasta file is not found!\n";
 	print "Reading in $fasta\n";
@@ -66,7 +67,7 @@ while (<IN>){ #Read in the MCL output lines with only two genes or more in the g
 		for my $singleGene(@geneFam){ ###An array for single copy genes (gene family n==1) along with sequence
 			if (exists $sequence{$singleGene}){
 				my $singleLine = $singleGene."\t".$sequence{$singleGene};
-				push @singleCopy, $line; 
+				push @singleCopy, $singleLine; 
 			}
 		}
 	}
@@ -92,8 +93,8 @@ close (OUTPUT);
 ###Change to orthofile directory
 chdir ($orthodir); 
 
-##################################### MSA AND PHYLOGENY FOR EACH GENE FAMILY #########################################################
-my $switch=0; 
+##################################### MSA AND PHYLOGENY FOR EACH GENE FAMILY ##############################################
+my $switch = 0; 
 
 for my $family (@Familylist){
 	if($switch ==1){
@@ -120,9 +121,10 @@ for my $family (@Familylist){
 			##PRANK: codon msa
 			system("prank -d=".$family.".nostop.fa -o=".$family."_codon -codon -F");
 			system("prank -convert -d=".$family."_codon.best.fas -f=paml -o=".$family." -keep");
-
+			
+			##TreeBest: build gene trees guided by a Species Tree
+			system("treebest best -f $speciesTree ".$family."_codon.best.fas > ".$family.".nhx");
 		}
-
 
 	}; 
 	$switch=1; 
