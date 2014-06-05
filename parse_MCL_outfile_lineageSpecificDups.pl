@@ -124,6 +124,9 @@ for my $family (@Familylist){
 			
 			##TreeBest: build gene trees guided by a Species Tree
 			system("treebest best -f $speciesTree ".$family."_codon.best.fas > ".$family.".nhx");
+			
+			##Python script that uses the ete2 module to find orthologs and paralogs in gene trees
+			system("python geneTreeParse.py ".$family.".nhx ".$family."_homology.txt"");
 		}
 
 	}; 
