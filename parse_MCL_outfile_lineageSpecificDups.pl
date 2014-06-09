@@ -6,17 +6,24 @@ use Data::Dumper;
 use Cwd;
 use threads;
 
-###Perl script to find lineage specific duplicates in orthoMCL output, align them with muscle, and then use paml yn00 to calculate dS, make sure both perl and python are loaded!!!
+###Perl script to find lineage specific duplicates in orthoMCL output, align them with PRANK, create species guided phylogenies with TreeBest, and parse each tree to find orthologs and paralogs for each gene family.  
+##make sure both perl and python are loaded!!!
 
 ################################ VARIABLES ###################################################
 ###Input variables
-if ($#ARGV != 4 ) {;}
+if ($#ARGV != 11 ) {;}
 my $MCLout = $ARGV[0]; 			##mcl output from blast all v all and then single linkage clustering with MCL
 my $genePair = $ARGV[1];		##Prefix for gene pair
 my $numProc = $ARGV[2];			##Number of processors
 my $orthodir = $ARGV[3];		##Name of directory for all gene family files
 my $SC_file = $ARGV[4]; 		###File for single copy genes
 my $speciesTree = $ARGV[5];		###File with Species tree for TreeBeST
+my $species1 = $ARGV[6];
+my $species2 = $ARGV[7];
+my $species3 = $ARGV[8];
+my $sp1 = $ARGV[9]; 
+my $sp2 = $ARGV[10]; 
+my $sp3 = $ARGV[11]; 
 
 ###Variables
 my $seq_id;
@@ -32,15 +39,18 @@ mkdir $orthodir;
 #Populate Hashes with Sequence Data for each gene set; make sure that there is no sequence wrapping!!!!
 my @cds_files=glob("*.fa"); #pulls all fasta files into an array 
 
-################# READ IN SEQUENCE FILES AND MCL CLUSTERING OUTPUT FILES ###################
+################# READ IN SEQUENCE FILES AND MCL CLUSTERING OUTPUT FILES ##############
 for my $fasta(@cds_files){			####Reads through each fasta file and creates hash with gene id and the sequence
 	open (IN, $fasta) || die "$fasta file is not found!\n";
 	print "Reading in $fasta\n";
 	while (<IN>){ #Read in multifasta file
 		chomp $_;
+		my @fileShit = split("_", $fasta);
+		my $species = $fileShit[0];			###extract species name from fasta file name 
 		if ($_ =~ /^>(.*)/){
 			$seq_id = $_; #Put the sequence ID here!
 			$seq_id =~ s/\W//g;
+			$seq_id = $seq_id."_".$species; 
 			$seq = $1; 
 		} else{
 			$seq =$_; #Sequence goes here!
@@ -49,11 +59,22 @@ for my $fasta(@cds_files){			####Reads through each fasta file and creates hash 
 	}close(IN);
 }
 
-open (IN, $MCLout) || die "$MCLout is not found!\n";
+open (INPUT, $MCLout) || die "$MCLout is not found!\n";
 print "Reading in $MCLout\n";
-while (<IN>){ #Read in the MCL output lines with only two genes or more in the gene family
+while (<INPUT>){ #Read in the MCL output lines with only two genes or more in the gene family
 	chomp $_;
 	my @geneFam = split("\t", $_); 
+	foreach my $member(@geneFam){
+		if ($member =~ $sp1){
+			$member = $member."_".$species1; 
+		}
+		if ($member =~ $sp2){
+			$member = $member."_".$species2; 
+		}
+		if ($member =~ $sp3){
+			$member = $member."_".$species3; 
+		}
+	}
 	if (scalar @geneFam >= 2){
 		my $FamID = $genePair."_".$count; 
 		for my $geneID(@geneFam){
@@ -71,7 +92,7 @@ while (<IN>){ #Read in the MCL output lines with only two genes or more in the g
 			}
 		}
 	}
-}close(IN);
+}close(INPUT);
 
 #####Print out a multi-fasta file for each gene Family
 for my $fam (keys %family){
@@ -109,7 +130,7 @@ for my $family (@Familylist){
 	async{
 		unless(-e $family."_codon_interleaved.best.fas.gb.phylip"){
 			##Translates nuc to AA
-			print "doing alignment and paml";
+			print "doing alignment for $family\n";
 			system("transeq -sequence ".$family.".fa -outseq ".$family.".pep");
 
 			##Removes _1; formatting
@@ -123,9 +144,11 @@ for my $family (@Familylist){
 			system("prank -convert -d=".$family."_codon.best.fas -f=paml -o=".$family." -keep");
 			
 			##TreeBest: build gene trees guided by a Species Tree
+			print "Creating species guided gene tree for $family\n"; 
 			system("treebest best -f $speciesTree ".$family."_codon.best.fas > ".$family.".nhx");
 			
 			##Python script that uses the ete2 module to find orthologs and paralogs in gene trees
+			print "Parsing Genetree $family\n"; 
 			system("python geneTreeParse.py ".$family.".nhx ".$family."_homology.txt");
 			
 			##An array with all the homology files
