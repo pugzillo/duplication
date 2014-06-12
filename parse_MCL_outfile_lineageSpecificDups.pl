@@ -7,7 +7,7 @@ use Cwd;
 use threads;
 
 ###Perl script to find lineage specific duplicates in orthoMCL output, align them with PRANK, create species guided phylogenies with TreeBest, and parse each tree to find orthologs and paralogs for each gene family.  
-##make sure both perl and python are loaded!!!
+##make sure both perl and python and emboss are loaded!!!
 
 ################################ VARIABLES ###################################################
 ###Input variables
@@ -32,7 +32,7 @@ my $cwd=getcwd();
 my $count = 1; 
 
 ###Data Structures
-my (%family, %sequence, @Familylist, %single_copy, @singleCopy, @homologyFiles)=();
+my (%family, %sequence, @Familylist, %single_copy, @singleCopy)=();
 
 mkdir $orthodir;
 
@@ -107,7 +107,7 @@ for my $fam (keys %family){
 #####Print out file with single copy genes
 open (OUTPUT, ">$SC_file") || die $!;
 for my $singleCopyGene (@singleCopy){
-	print OUT $singleCopyGene ."\n";
+	print OUTPUT $singleCopyGene ."\n";
 	}
 close (OUTPUT);
 
@@ -128,7 +128,7 @@ for my $family (@Familylist){
 		}
 	}
 	async{
-		unless(-e $family."_codon_interleaved.best.fas.gb.phylip"){
+		unless(-e $family."_homology.txt"){
 			##Translates nuc to AA
 			print "doing alignment for $family\n";
 			system("transeq -sequence ".$family.".fa -outseq ".$family.".pep");
@@ -149,10 +149,8 @@ for my $family (@Familylist){
 			
 			##Python script that uses the ete2 module to find orthologs and paralogs in gene trees
 			print "Parsing Genetree $family\n"; 
-			system("python geneTreeParse.py ".$family.".nhx ".$family."_homology.txt");
+			system("python /nv/hp10/lchau6/scratch/Duplication/geneTreeParse.py ".$family.".nhx ".$family."_homology.txt");
 			
-			##An array with all the homology files
-			push(@homologyFiles, $family."_homology.txt");
 		}
 
 	}; 
@@ -169,6 +167,8 @@ while(1){
 
 ############################# Classify orthologs and paralogs #######################
 my (%ortholog_one2one, %ortholog_one2many, %ortholog_many2many, %withinSpecies_paralog, %BtwnSpecies_paralog)=(); 
+
+my @homologyFiles=glob("*_homology.txt"); #pulls all fasta files into an array 
 
 for my $file (@homologyFiles){
 	open (INPUT, $file) || die "$file file is not found!\n";
