@@ -43,17 +43,17 @@ my @cds_files=glob("*.fa"); #pulls all fasta files into an array
 for my $fasta(@cds_files){			####Reads through each fasta file and creates hash with gene id and the sequence
 	open (IN, $fasta) || die "$fasta file is not found!\n";
 	print "Reading in $fasta\n";
+	$/ = ">";
 	while (<IN>){ #Read in multifasta file
-		chomp $_;
+		chomp $_; 
 		my @fileShit = split("_", $fasta);
 		my $species = $fileShit[0];			###extract species name from fasta file name 
-		if ($_ =~ /^>(.*)/){
-			$seq_id = $_; #Put the sequence ID here!
-			$seq_id =~ s/\W//g;
-			$seq_id = $seq_id."_".$species; 
-			$seq = $1; 
-		} else{
-			$seq =$_; #Sequence goes here!
+		my ($seq_id, @seqLines) = split /\n/, $_;
+		#$seq_id =~ s/\s.*//g;
+		$seq_id = $seq_id."_".$species; 		##Add species name to each sequence id for treebest later on
+		my $seq = join('',@seqLines);; #Sequence goes here!
+		if ($seq =~/n/){
+			chop $seq; 
 		}
 		$sequence{$seq_id} = $seq; ###Hash with the id and sequence for each gene in the genome file
 	}close(IN);
@@ -61,10 +61,13 @@ for my $fasta(@cds_files){			####Reads through each fasta file and creates hash 
 
 open (INPUT, $MCLout) || die "$MCLout is not found!\n";
 print "Reading in $MCLout\n";
+$/ = "\n";
 while (<INPUT>){ #Read in the MCL output lines with only two genes or more in the gene family
 	chomp $_;
-	my @geneFam = split("\t", $_); 
-	foreach my $member(@geneFam){
+	my @geneFam = split("\t", $_);  
+	my $number = scalar(@geneFam); 
+	print "$_\t$number\n";
+	foreach my $member(@geneFam){			###Attach species to sequenceID
 		if ($member =~ $sp1){
 			$member = $member."_".$species1; 
 		}
@@ -75,7 +78,7 @@ while (<INPUT>){ #Read in the MCL output lines with only two genes or more in th
 			$member = $member."_".$species3; 
 		}
 	}
-	if (scalar @geneFam >= 2){
+	if (scalar(@geneFam) >= 2){
 		my $FamID = $genePair."_".$count; 
 		for my $geneID(@geneFam){
 			if (exists $sequence{$geneID}){
@@ -87,7 +90,7 @@ while (<INPUT>){ #Read in the MCL output lines with only two genes or more in th
 	}else{
 		for my $singleGene(@geneFam){ ###An array for single copy genes (gene family n==1) along with sequence
 			if (exists $sequence{$singleGene}){
-				my $singleLine = $singleGene."\t".$sequence{$singleGene};
+				my $singleLine = ">".$singleGene."\n".$sequence{$singleGene}."\n";
 				push @singleCopy, $singleLine; 
 			}
 		}
@@ -135,21 +138,20 @@ for my $family (@Familylist){
 
 			##Removes _1; formatting
 			system("sed 's/_1//g' ".$family.".pep > ".$family.".faa");
-
-			##Removes in sequence stop codons
-			system("perl /nv/hp10/lchau6/data/apis_molevo/testing/thread_testing/testStop.pl --pep ".$family.".faa --nuc ".$family.".fa --output ".$family.".nostop.fa");
 			
-			##PRANK: codon msa
-			system("prank -d=".$family.".nostop.fa -o=".$family."_codon -codon -F");
-			system("prank -convert -d=".$family."_codon.best.fas -f=paml -o=".$family." -keep");
+			##MUSCLE: protein msa
+			system("muscle3.8.31 -in ".$family.".faa -out ".$family.".afa");
+			
+			##PAL2NAL: convert protein msa to nucleotide
+			system("perl /nv/hp10/lchau6/bin/pal2nal.v14/pal2nal.pl ".$family.".afa ".$family.".fa -output fasta > ".$family.".codon.aln");
 			
 			##TreeBest: build gene trees guided by a Species Tree
 			print "Creating species guided gene tree for $family\n"; 
-			system("treebest best -f $speciesTree ".$family."_codon.best.fas > ".$family.".nhx");
+			system("treebest best -f $speciesTree ".$family.".codon.aln > ".$family.".nhx");
 			
 			##Python script that uses the ete2 module to find orthologs and paralogs in gene trees
 			print "Parsing Genetree $family\n"; 
-			system("python /nv/hp10/lchau6/scratch/Duplication/geneTreeParse.py ".$family.".nhx ".$family."_homology.txt");
+			system("python /nv/hp10/lchau6/bin/geneTreeParse.py ".$family.".nhx ".$family."_homology.txt");
 			
 		}
 
@@ -172,6 +174,7 @@ my @homologyFiles=glob("*_homology.txt"); #pulls all fasta files into an array
 
 for my $file (@homologyFiles){
 	open (INPUT, $file) || die "$file file is not found!\n";
+	my $geneTreeID = ($file=~ s/homology.txt//g); 			###geneTree id
 	while (<INPUT>){ 	##Read in homology files
 		chomp $_;
 		if ($_ =~ /^ORTHOLOGY RELATIONSHIP\:/){	###Take in orthologs and classifys them into orthology type 
@@ -180,12 +183,15 @@ for my $file (@homologyFiles){
 			my @OrthoArray1 = split(",", $set1); 
 			my @OrthoArray2 = split(",", $set2);
 			if( scalar @OrthoArray1 == 1 && scalar @OrthoArray2 == 1 ){			###Find one to one orthologs
-				$ortholog_one2one{$OrthoArray1[0]} = $OrthoArray2[0]; 	
+				my $var = $geneTreeID."_".$OrthoArray1[0]; 
+				$ortholog_one2one{$var} = $OrthoArray2[0]; 	
 			}elsif(( scalar @OrthoArray1 == 1 || scalar @OrthoArray2 == 1) && scalar @OrthoArray1 != scalar @OrthoArray2 ){	###Find one to many orthologs
-				my $string1 = join(',', @OrthoArray1);
+				unshift(@OrthoArray1, $geneTreeID); 
+				my $string1 = join(',', @OrthoArray1); 
 				my $string2 = join(',', @OrthoArray2);
 				$ortholog_one2many{$string1} = $string2; 
 			}else{										###FInds many to many orthologs
+				unshift(@OrthoArray1, $geneTreeID);
 				my $string3 = join(',', @OrthoArray1);
 				my $string4 = join(',', @OrthoArray2);			
 				$ortholog_many2many{$string3} = $string4; 
