@@ -139,7 +139,7 @@ for my $blastresult(@blastOUT){
 					$longestGene = $subject_length; 
 				}
 				my $percentOverlap = $overlap / $longestGene; 			###Percent Overlap 
-				if ($identity >= 50 &&  $percentOverlap >= 0.6 && $eval <= 9e-3){ ###Filters based on criteria set by Assis and Bachtrog 2013
+				if ($identity >= 50 &&  $percentOverlap >= 0.6 && $eval <= 0.00001){ ###Filters based on criteria set by Assis and Bachtrog 2013
 					push (@{ $criteria{$gene} }, $_); 	####Hash with significant matches
 				}
 			}
@@ -178,6 +178,8 @@ while(1){
 	last unless (@running > 0 or @joinable > 0);
 	sleep(5); 
 }
+
+print "DONE\n"; 
 ######################################################################################################
 
 sub UsageandExit{
