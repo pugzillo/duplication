@@ -32,14 +32,6 @@ my (@blastOUT, @ClusterFiles) = ();
 
 getopts("pn", \%options);	 #enter if protein (-p) or nucleotide (-n)
 
-##takes in user option of protein or nucleotide blast
-if (defined $options{p}){  
-	$seqtype = "prot"; 
-	$prg = "blastp"; 
-}else{
-	$seqtype = "nucl"; 
-	$prg= "blastn"; 
-}
 
 ########################################Directories#############################################################
 
@@ -139,7 +131,7 @@ for my $blastresult(@blastOUT){
 					$longestGene = $subject_length; 
 				}
 				my $percentOverlap = $overlap / $longestGene; 			###Percent Overlap 
-				if ($identity >= 50 &&  $percentOverlap >= 0.6 && $eval <= 0.00001){ ###Filters based on criteria set by Assis and Bachtrog 2013
+				if ($identity >= 50 &&  $percentOverlap >= 0.6 && $eval <= 9e-3){ ###Filters based on criteria set by Assis and Bachtrog 2013
 					push (@{ $criteria{$gene} }, $_); 	####Hash with significant matches
 				}
 			}
@@ -163,10 +155,10 @@ for my $blastresult(@blastOUT){
 		system("mcxload -abc ".$blastresult."MCLinput.txt --stream-mirror --stream-neg-log10 -stream-tf 'ceil(200)' -o ".$blastresult."_blastMCL.mci -write-tab ".$blastresult."_blastMCL.tab");
 
 		####Clustering; -I is the inflation constant; range from 1.2-5, with 5 having the most fine granularity in clusteringand 1.2 having the largest
-		system("mcl ".$blastresult."_blastMCL.mci -I 2 -use-tab ".$blastresult."_blastMCL.tab");
+		system("mcl ".$blastresult."_blastMCL.mci -I 2.1 -use-tab ".$blastresult."_blastMCL.tab");
 	
 	 }
-		push(@ClusterFiles, "out.".$blastresult."_blastMCL.mci.I20");
+		push(@ClusterFiles, "out.".$blastresult."_blastMCL.mci.I21");
 }}
 		$switch1=1; 
 	
@@ -178,8 +170,6 @@ while(1){
 	last unless (@running > 0 or @joinable > 0);
 	sleep(5); 
 }
-
-print "DONE\n"; 
 ######################################################################################################
 
 sub UsageandExit{
