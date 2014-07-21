@@ -32,6 +32,14 @@ my (@blastOUT, @ClusterFiles) = ();
 
 getopts("pn", \%options);	 #enter if protein (-p) or nucleotide (-n)
 
+##takes in user option of protein or nucleotide blast
+ if (defined $options{p}){  
+ 	$seqtype = "prot"; 
+ 	$prg = "blastp"; 
+ }else{
+ 	$seqtype = "nucl"; 
+ 	$prg= "blastn"; 
+ }
 
 ########################################Directories#############################################################
 
