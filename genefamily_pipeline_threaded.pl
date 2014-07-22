@@ -191,7 +191,7 @@ while(1){
 
 sub UsageandExit{
 	print "Usage:\n";
-	print "./genefamily_pipeline_threaded.pl -n/-p <numProcessors> \n";
+	print "./genefamily_pipeline_threaded.pl -n/-p <numProcessors> <clustering I> <clustering TF>\n";
     exit;
 	}
 	
