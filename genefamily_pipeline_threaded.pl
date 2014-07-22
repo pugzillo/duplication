@@ -17,9 +17,11 @@ use Data::Dumper;
 # ####sed -e 's/\(^>.*$\)/#\1#/' aflor_testseq.fa | tr -d "\r" | tr -d "\n" | sed -e 's/$/#/' | tr "#" "\n" | sed -e '/^$/d' > aflor_testseq_linear.fa
 
 ###Input Options####
-if ($#ARGV != 0 ) {;}
+if ($#ARGV != 2 ) {;}
 
 my $numProc =$ARGV[0]; #### number of processors to run with
+my $cluster =$ARGV[1]; #### clustering inflation factor
+my $clusterTF = $ARGV[2]; ####clustering transformation; must be in format 'gq(50)'; Must remember single quotes
 
 ###Variables####
 sub maxval;
@@ -72,13 +74,17 @@ for my $queryFile(@cds_files){
 		my $dbSpecies = $SubSpecies."_".$dbversion; 
 		print "Blast $querySpecies against $dbSpecies\n";
 		my $blastoutput = $querySpecies."_blast_".$dbSpecies.".txt"; 
-		system("".$prg." -outfmt=6 -task=".$prg." -strand plus -query ".$queryFile." -db ".$DBfile." -out ".$blastoutput.""); 
+		if ($prg == "blastn"){
+			system("blastn -outfmt=6 -task=blastn -query ".$queryFile." -db ".$DBfile." -out ".$blastoutput.""); 
+		}elsif($prg == "blastp"){
+			system("blastp -outfmt=6 -task=blastp -query ".$queryFile." -db ".$DBfile." -out ".$blastoutput."");
+		}
 		push (@blastOUT, $blastoutput); 		###An array which includes all of the blastoutput files
 		system("mv ".$blastoutput." ".$blastResults.""); ###Move blast result files to the blastoutput directory
 }
 }
 
-##########Filtering all of the blastall results (critera: $identity >= 50 &&  $percentOverlap >= 0.6 && $eval <= 9e-3)
+##########Filtering all of the blastall results (critera: $identity >= 50 &&  $percentOverlap >= 0.6 && $eval <= 0.00001)
 
 chdir ($blastResults); 
 
@@ -139,7 +145,7 @@ for my $blastresult(@blastOUT){
 					$longestGene = $subject_length; 
 				}
 				my $percentOverlap = $overlap / $longestGene; 			###Percent Overlap 
-				if ($identity >= 50 &&  $percentOverlap >= 0.6 && $eval <= 9e-3){ ###Filters based on criteria set by Assis and Bachtrog 2013
+				if ($identity >= 50 &&  $percentOverlap >= 0.6 && $eval <= 0.00001){ ###Filters based on criteria set by Assis and Bachtrog 2013
 					push (@{ $criteria{$gene} }, $_); 	####Hash with significant matches
 				}
 			}
@@ -163,14 +169,17 @@ for my $blastresult(@blastOUT){
 		system("mcxload -abc ".$blastresult."MCLinput.txt --stream-mirror --stream-neg-log10 -stream-tf 'ceil(200)' -o ".$blastresult."_blastMCL.mci -write-tab ".$blastresult."_blastMCL.tab");
 
 		####Clustering; -I is the inflation constant; range from 1.2-5, with 5 having the most fine granularity in clusteringand 1.2 having the largest
-		system("mcl ".$blastresult."_blastMCL.mci -I 2.1 -use-tab ".$blastresult."_blastMCL.tab");
-	
+		if (exists $clusterTF){		###clustering with graph transformation
+			system("mcl ".$blastresult."_blastMCL.mci -I ".$cluster." -tf ".$clusterTF."-use-tab ".$blastresult."_blastMCL.tab");
+		}else{				###clustering without transformation
+			system("mcl ".$blastresult."_blastMCL.mci -I ".$cluster." -use-tab ".$blastresult."_blastMCL.tab");
+		}
 	 }
-		push(@ClusterFiles, "out.".$blastresult."_blastMCL.mci.I21");
+		push(@ClusterFiles, "out.".$blastresult."_blastMCL.mci.I."$cluster"");
 }}
 		$switch1=1; 
 	
-# ########Joins running threads 
+#########Joins running threads 
 while(1){
 	my @running = threads->list(threads::running);
 	my @joinable = threads->list(threads::joinable);
